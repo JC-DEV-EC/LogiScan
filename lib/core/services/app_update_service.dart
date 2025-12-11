@@ -69,7 +69,10 @@ class AppUpdateService {
                 onPressed: () {
                   Navigator.of(ctx).pop();
                 },
-                child: const Text('Cerrar'),
+                child: const Text(
+                  'Cerrar',
+                  style: TextStyle(color: Color(0xFF111827)),
+                ),
               ),
             ],
           ),
@@ -118,7 +121,10 @@ class AppUpdateService {
               onPressed: () {
                 Navigator.of(ctx).pop();
               },
-              child: const Text('Más tarde'),
+              child: const Text(
+                'Más tarde',
+                style: TextStyle(color: Color(0xFF111827)),
+              ),
             ),
           ],
         );

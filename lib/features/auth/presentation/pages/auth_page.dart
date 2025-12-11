@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
@@ -18,6 +17,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
+  bool _didAutoRedirect = false;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -34,75 +34,110 @@ class _AuthScreenState extends State<AuthScreen> {
     final auth = context.watch<AuthProvider>();
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      body: Stack(
+    // Redirect if session already active
+    if (auth.isAuthenticated && !_didAutoRedirect) {
+      _didAutoRedirect = true;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+      });
+    }
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: Stack(
         children: [
-          // Fondo en degradado azul.
+          // Background gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF3F6DB0),
-                  Color(0xFF274979),
-                ],
+                colors: [Color(0xFF050505), Color(0xFF222222)],
               ),
             ),
           ),
-          // Líneas decorativas suaves para un fondo más profesional.
-          CustomPaint(
-            size: Size.infinite,
-            painter: _BackgroundLinesPainter(),
-          ),
-          // Figuras flotantes (círculos y cuadrados blancos) sobre el degradado.
-          const _FloatingShapesLayer(),
-          // Contenido principal.
+
+          // Background decorative blocks
+          const _BackgroundBlocks(),
+
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: SizedBox(
-                  width: size.width > 420 ? 380 : double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: size.width > 420 ? 380 : double.infinity,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 32),
+
+                      // Logo
                       Center(
-                        child: Text(
-                          'LOGO',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 4,
-                              ),
+                        child: SizedBox(
+                          width: size.width * 0.5,
+                          height: 140,
+                          child: Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
+
                       const SizedBox(height: 32),
-                      Align(
-                        alignment: _isLogin
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Text(
-                          _isLogin ? 'Login' : 'Sign up',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w600,
-                              ),
+
+                      // Title + subtitle
+                      Center(
+                        child: Column(
+                          children: [
+                            Text(
+                              'LogiScan',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _isLogin
+                                  ? 'Sign in to continue'
+                                  : 'Create an account',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.white70),
+                            ),
+                          ],
                         ),
                       ),
+
                       const SizedBox(height: 24),
-                      GlassContainer(
-                        borderRadius: BorderRadius.circular(36),
+
+                      // Auth card
+                      Container(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF121212),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white10),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black54,
+                              blurRadius: 20,
+                              offset: Offset(0, 12),
+                            ),
+                          ],
+                        ),
                         child: _AuthForm(
                           isLogin: _isLogin,
                           emailController: _emailController,
@@ -110,28 +145,28 @@ class _AuthScreenState extends State<AuthScreen> {
                           isLoading: auth.isLoading,
                           error: auth.error,
                           onToggle: () {
-                            setState(() {
-                              _isLogin = !_isLogin;
-                            });
+                            setState(() => _isLogin = !_isLogin);
                           },
                           onSubmit: () async {
                             final email = _emailController.text.trim();
                             final password = _passwordController.text;
+
                             if (email.isEmpty || password.isEmpty) {
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content:
-                                      Text('Ingresa tu correo y contraseña'),
+                                  content: Text(
+                                    'Ingresa tu correo y contraseña',
+                                  ),
                                 ),
                               );
                               return;
                             }
 
                             final success = await auth.login(email, password);
+
                             if (!mounted) return;
                             if (success) {
-                              // Navegación diferida para evitar advertencia de contexto
                               WidgetsBinding.instance.addPostFrameCallback((_) {
                                 if (!mounted) return;
                                 Navigator.of(context).pushReplacement(
@@ -152,54 +187,82 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 
-class GlassContainer extends StatelessWidget {
-  const GlassContainer({
-    super.key,
-    required this.child,
-    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
-    this.padding = const EdgeInsets.all(12),
-  });
-
-  final Widget child;
-  final BorderRadius borderRadius;
-  final EdgeInsets padding;
+class _BackgroundBlocks extends StatelessWidget {
+  const _BackgroundBlocks();
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.7),
-              width: 1.0,
-            ),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.75),
-                Colors.white.withValues(alpha: 0.35),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 10),
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+
+          return Stack(
+            children: [
+              // Large diagonal panel across the center
+              Positioned(
+                top: height * 0.10,
+                left: -width * 0.4,
+                right: -width * 0.2,
+                child: Transform.rotate(
+                  angle: -0.35,
+                  alignment: Alignment.center,
+                  child: Container(
+                    height: height * 0.45,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF171717),
+                          Color(0xFF0F0F0F),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Slightly lighter diagonal panel underneath
+              Positioned(
+                top: height * 0.30,
+                left: -width * 0.3,
+                right: -width * 0.3,
+                child: Transform.rotate(
+                  angle: -0.35,
+                  alignment: Alignment.center,
+                  child: Container(
+                    height: height * 0.35,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF262626),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Narrow darker strip to add depth
+              Positioned(
+                top: height * 0.05,
+                left: -width * 0.5,
+                right: width * 0.1,
+                child: Transform.rotate(
+                  angle: -0.35,
+                  alignment: Alignment.center,
+                  child: Container(
+                    height: height * 0.20,
+                    color: const Color(0xFF101010),
+                  ),
+                ),
               ),
             ],
-          ),
-          child: child,
-        ),
+          );
+        },
       ),
     );
   }
@@ -237,29 +300,30 @@ class _AuthForm extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
+
         _GlassTextField(
-          hintText: 'Email',
+          hintText: 'Email address or Username',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           controller: emailController,
         ),
+
         const SizedBox(height: 16),
+
         _GlassTextField(
           hintText: 'Password',
           icon: Icons.lock_outline,
           obscureText: true,
           controller: passwordController,
         ),
+
         if (isLogin) ...[
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
               'Forgot Password?',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
         ] else ...[
@@ -270,66 +334,50 @@ class _AuthForm extends StatelessWidget {
             obscureText: true,
           ),
         ],
+
         const SizedBox(height: 24),
+
         SizedBox(
           width: double.infinity,
           height: 50,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF274979),
-                  Color(0xFF1F3A5F),
-                ],
+          child: OutlinedButton(
+            onPressed: isLoading ? null : onSubmit,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: Offset(0, 8),
-                ),
-              ],
+              foregroundColor: Colors.white,
             ),
-            child: ElevatedButton(
-              onPressed: isLoading ? null : onSubmit,
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      isLogin ? 'Login' : 'Sign up',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
-            ),
+                  )
+                : const Text(
+                    'Login',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
           ),
         ),
+
         const SizedBox(height: 12),
+
         if (error != null && error!.isNotEmpty) ...[
           Builder(
             builder: (context) {
               final msg = error!;
-              // Si el backend envía mensaje de versión mínima, mostrar diálogo de actualización
-              if (msg.toLowerCase().contains('versión mínima') ||
-                  msg.toLowerCase().contains('version minima')) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
+
+              final isVersionError =
+                  msg.toLowerCase().contains('versión mínima') ||
+                  msg.toLowerCase().contains('version minima');
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (isVersionError) {
                   AppUpdateService.instance.handleVersionResponse(
                     context,
                     VersionResponse(
@@ -340,22 +388,21 @@ class _AuthForm extends StatelessWidget {
                       updateUrl: null,
                     ),
                   );
-                });
-              } else {
-                // Mostrar snackbar con icono (mismo concepto que MessageHelper en gbi_logistics)
-                WidgetsBinding.instance.addPostFrameCallback((_) {
+                } else {
                   MessageHelper.showIconSnackBar(
                     context,
                     message: msg,
                     isSuccess: false,
                   );
-                });
-              }
+                }
+              });
+
               return const SizedBox.shrink();
             },
           ),
           const SizedBox(height: 12),
         ],
+
         GestureDetector(
           onTap: onToggle,
           child: Text.rich(
@@ -363,10 +410,7 @@ class _AuthForm extends StatelessWidget {
               text: isLogin
                   ? "Don't have an account? "
                   : 'Already have an account? ',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
               children: [
                 TextSpan(
                   text: isLogin ? 'Sign up' : 'Login',
@@ -378,6 +422,14 @@ class _AuthForm extends StatelessWidget {
               ],
             ),
           ),
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          'Version ${VersionService.instance.version}',
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -401,293 +453,26 @@ class _GlassTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      borderRadius: BorderRadius.circular(30),
-      padding: EdgeInsets.zero,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscureText,
-              keyboardType: keyboardType,
-              style: const TextStyle(color: Colors.black87),
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
-                hintText: hintText,
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade500,
-                ),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          _GradientIconPill(icon: icon),
-        ],
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      cursorColor: Colors.white,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: Colors.white70),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.white),
+        ),
+        filled: false,
       ),
     );
   }
-}
-
-class _GradientIconPill extends StatelessWidget {
-  const _GradientIconPill({
-    required this.icon,
-  });
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 52,
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF3F6DB0),
-            Color(0xFF274979),
-          ],
-        ),
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-      ),
-    );
-  }
-}
-
-class _FloatingShapesLayer extends StatelessWidget {
-  const _FloatingShapesLayer();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          _floatingCircle(left: 24, top: 80, size: 18),
-          _floatingCircle(right: 32, top: 140, size: 12),
-          _floatingCircle(left: 80, bottom: 160, size: 10),
-          _floatingSquare(right: 40, bottom: 120, size: 22),
-          _floatingSquare(left: 32, bottom: 80, size: 16),
-        ],
-      ),
-    );
-  }
-
-  Positioned _floatingCircle({
-    double? left,
-    double? top,
-    double? right,
-    double? bottom,
-    required double size,
-  }) {
-    return Positioned(
-      left: left,
-      right: right,
-      top: top,
-      bottom: bottom,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.16),
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-
-  Positioned _floatingSquare({
-    double? left,
-    double? top,
-    double? right,
-    double? bottom,
-    required double size,
-  }) {
-    return Positioned(
-      left: left,
-      right: right,
-      top: top,
-      bottom: bottom,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-}
-
-class _BackgroundLinesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Pinceles para líneas finas y gruesas.
-    final mainStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..color = Colors.white.withValues(alpha: 0.32);
-
-    final softStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = Colors.white.withValues(alpha: 0.18);
-
-    final boldStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..color = Colors.white.withValues(alpha: 0.40);
-
-    // Líneas superiores suaves.
-    final topWave1 = Path()
-      ..moveTo(-80, size.height * 0.12)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        size.height * 0.02,
-        size.width * 0.9,
-        size.height * 0.18,
-      );
-
-    final topWave2 = Path()
-      ..moveTo(-40, size.height * 0.20)
-      ..quadraticBezierTo(
-        size.width * 0.35,
-        size.height * 0.08,
-        size.width * 1.05,
-        size.height * 0.26,
-      );
-
-    // Banda diagonal central.
-    final middleWave1 = Path()
-      ..moveTo(-60, size.height * 0.46)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        size.height * 0.38,
-        size.width * 1.1,
-        size.height * 0.52,
-      );
-
-    final middleWave2 = Path()
-      ..moveTo(-40, size.height * 0.58)
-      ..quadraticBezierTo(
-        size.width * 0.35,
-        size.height * 0.50,
-        size.width * 1.0,
-        size.height * 0.64,
-      );
-
-    // Líneas inferiores largas.
-    final bottomWave1 = Path()
-      ..moveTo(-70, size.height * 0.78)
-      ..quadraticBezierTo(
-        size.width * 0.30,
-        size.height * 0.88,
-        size.width * 0.98,
-        size.height * 0.96,
-      );
-
-    final bottomWave2 = Path()
-      ..moveTo(-30, size.height * 0.86)
-      ..quadraticBezierTo(
-        size.width * 0.40,
-        size.height * 0.96,
-        size.width * 1.1,
-        size.height * 1.04,
-      );
-
-    // Dibujar líneas con distintos grosores.
-    canvas.drawPath(topWave1, mainStroke);
-    canvas.drawPath(topWave2, softStroke);
-    canvas.drawPath(middleWave1, boldStroke);
-    canvas.drawPath(middleWave2, softStroke);
-    canvas.drawPath(bottomWave1, mainStroke);
-    canvas.drawPath(bottomWave2, softStroke);
-
-    // Manchas suaves de color para dar profundidad.
-    final accentPaint1 = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFF94AEDD),
-          Color(0x00FFFFFF),
-        ],
-      ).createShader(
-        Rect.fromLTWH(
-          size.width * 0.05,
-          size.height * 0.55,
-          size.width * 0.6,
-          size.height * 0.35,
-        ),
-      );
-
-    final accentBlob1 = Path()
-      ..moveTo(size.width * 0.0, size.height * 0.70)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        size.height * 0.60,
-        size.width * 0.55,
-        size.height * 0.74,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.30,
-        size.height * 0.95,
-        size.width * 0.0,
-        size.height * 0.92,
-      )
-      ..close();
-
-    final accentPaint2 = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = const LinearGradient(
-        begin: Alignment.topRight,
-        end: Alignment.bottomLeft,
-        colors: [
-          Color(0xFFB0C5F0),
-          Color(0x00FFFFFF),
-        ],
-      ).createShader(
-        Rect.fromLTWH(
-          size.width * 0.35,
-          size.height * 0.35,
-          size.width * 0.5,
-          size.height * 0.40,
-        ),
-      );
-
-    final accentBlob2 = Path()
-      ..moveTo(size.width * 0.40, size.height * 0.40)
-      ..quadraticBezierTo(
-        size.width * 0.70,
-        size.height * 0.38,
-        size.width * 0.95,
-        size.height * 0.50,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.70,
-        size.height * 0.60,
-        size.width * 0.42,
-        size.height * 0.58,
-      )
-      ..close();
-
-    canvas.drawPath(accentBlob1, accentPaint1);
-    canvas.drawPath(accentBlob2, accentPaint2);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

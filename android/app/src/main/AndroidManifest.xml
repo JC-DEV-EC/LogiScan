@@ -1,6 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.gbi_logistics.logiscan">
+
+    <uses-permission android:name="android.permission.CAMERA" />
     <application
-        android:label="logiscan"
+        android:label="LogiScan"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

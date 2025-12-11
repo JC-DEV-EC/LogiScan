@@ -20,13 +20,13 @@ class VersionService {
         version: '1.0.0',
         buildNumber: '9',
         appName: 'LogiScan',
-        packageName: 'com.example.logiscan',
+        packageName: 'com.gbi_logistics.logiscan',
       );
     }
   }
 
   String get fullVersion {
-    if (_packageInfo == null) return '1.0.0+1';
+    if (_packageInfo == null) return '1.0.0+9';
     return '${_packageInfo!.version}+${_packageInfo!.buildNumber}';
   }
 

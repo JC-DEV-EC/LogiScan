@@ -20,19 +20,19 @@ class LoginResponse {
   final String? personFirstName;
   final String? personLastName;
   final String? entityName;
-  /// Logo URL for the courier / company returned by the backend.
-  final String? courierImageUrl;
 
   const LoginResponse({
     this.token,
     this.personFirstName,
     this.personLastName,
     this.entityName,
-    this.courierImageUrl,
   });
 
   factory LoginResponse.empty() => const LoginResponse();
 
+  /// The backend wraps LoginResponse in a generic "LoginResponseGenericResponse"
+  /// with fields: code, responseType, message, messageDetail, content.
+  /// This factory accepts either the outer wrapper or the raw content map.
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as Map<String, dynamic>? ?? json;
 
@@ -41,7 +41,6 @@ class LoginResponse {
       personFirstName: content['personFirstName'] as String?,
       personLastName: content['personLastName'] as String?,
       entityName: content['entityName'] as String?,
-      courierImageUrl: content['courierImageUrl'] as String?,
     );
   }
 
@@ -51,7 +50,6 @@ class LoginResponse {
           'personFirstName': personFirstName,
           'personLastName': personLastName,
           'entityName': entityName,
-          'courierImageUrl': courierImageUrl,
         },
       };
 }

@@ -10,6 +10,7 @@ import 'core/services/version_service.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/scan/services/measurement_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,7 @@ class _LogiScanAppState extends State<LogiScanApp> {
   late final HttpService _httpService;
   late final SecureCredentialsService _secureCredentialsService;
   late final AuthService _authService;
+  late final MeasurementService _measurementService;
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _LogiScanAppState extends State<LogiScanApp> {
     );
     _authService =
         AuthService(_httpService, _storageService, _secureCredentialsService);
+    _measurementService = MeasurementService(_httpService);
 
     _httpService.tokenRefreshCallback = () async {
       return await _authService.refreshTokenIfNeeded();
@@ -55,6 +58,9 @@ class _LogiScanAppState extends State<LogiScanApp> {
       providers: [
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(_authService),
+        ),
+        Provider<MeasurementService>(
+          create: (_) => _measurementService,
         ),
       ],
       child: MaterialApp(
