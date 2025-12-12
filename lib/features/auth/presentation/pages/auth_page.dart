@@ -52,143 +52,134 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       child: Scaffold(
         body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF050505), Color(0xFF222222)],
+          children: [
+            // Background gradient
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF050505), Color(0xFF222222)],
+                ),
               ),
             ),
-          ),
 
-          // Background decorative blocks
-          const _BackgroundBlocks(),
+            // Background decorative blocks
+            const _BackgroundBlocks(),
 
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: size.width > 420 ? 380 : double.infinity,
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 32),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: size.width > 420 ? 380 : double.infinity,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 32),
 
-                      // Logo
-                      Center(
-                        child: SizedBox(
-                          width: size.width * 0.5,
-                          height: 140,
-                          child: Image.asset(
-                            'assets/images/logo.png',
-                            fit: BoxFit.contain,
+                        // Logo
+                        Center(
+                          child: SizedBox(
+                            width: size.width * 0.5,
+                            height: 140,
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
-                      ),
 
-                      const SizedBox(height: 32),
+                        const SizedBox(height: 32),
 
-                      // Title + subtitle
-                      Center(
-                        child: Column(
-                          children: [
-                            Text(
-                              'LogiScan',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _isLogin
-                                  ? 'Sign in to continue'
-                                  : 'Create an account',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white70),
-                            ),
-                          ],
+                        // Subtitle only
+                        Center(
+                          child: Text(
+                            _isLogin
+                                ? 'Sign in to continue'
+                                : 'Create an account',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(color: Colors.white70),
+                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                      // Auth card
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF121212),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white10),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black54,
-                              blurRadius: 20,
-                              offset: Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: _AuthForm(
-                          isLogin: _isLogin,
-                          emailController: _emailController,
-                          passwordController: _passwordController,
-                          isLoading: auth.isLoading,
-                          error: auth.error,
-                          onToggle: () {
-                            setState(() => _isLogin = !_isLogin);
-                          },
-                          onSubmit: () async {
-                            final email = _emailController.text.trim();
-                            final password = _passwordController.text;
+                        // Auth card
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121212),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white10),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black54,
+                                blurRadius: 20,
+                                offset: Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: _AuthForm(
+                            isLogin: _isLogin,
+                            emailController: _emailController,
+                            passwordController: _passwordController,
+                            isLoading: auth.isLoading,
+                            error: auth.error,
+                            onToggle: () {
+                              setState(() => _isLogin = !_isLogin);
+                            },
+                            onSubmit: () async {
+                              final email = _emailController.text.trim();
+                              final password = _passwordController.text;
 
-                            if (email.isEmpty || password.isEmpty) {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Ingresa tu correo y contraseña',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-
-                            final success = await auth.login(email, password);
-
-                            if (!mounted) return;
-                            if (success) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (email.isEmpty || password.isEmpty) {
                                 if (!mounted) return;
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (_) => const HomePage(),
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Ingresa tu correo y contraseña',
+                                    ),
                                   ),
                                 );
-                              });
-                            }
-                          },
+                                return;
+                              }
+
+                              final success = await auth.login(email, password);
+
+                              if (!mounted) return;
+                              if (success) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted) return;
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (_) => const HomePage(),
+                                    ),
+                                  );
+                                });
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -219,10 +210,7 @@ class _BackgroundBlocks extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF171717),
-                          Color(0xFF0F0F0F),
-                        ],
+                        colors: [Color(0xFF171717), Color(0xFF0F0F0F)],
                       ),
                     ),
                   ),
@@ -239,9 +227,7 @@ class _BackgroundBlocks extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Container(
                     height: height * 0.35,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF262626),
-                    ),
+                    decoration: const BoxDecoration(color: Color(0xFF262626)),
                   ),
                 ),
               ),
@@ -302,7 +288,9 @@ class _AuthForm extends StatelessWidget {
         ],
 
         _GlassTextField(
-          hintText: 'Email address or Username',
+          hintText:
+              ''
+              'Username',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           controller: emailController,
@@ -316,24 +304,6 @@ class _AuthForm extends StatelessWidget {
           obscureText: true,
           controller: passwordController,
         ),
-
-        if (isLogin) ...[
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Forgot Password?',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-        ] else ...[
-          const SizedBox(height: 16),
-          const _GlassTextField(
-            hintText: 'Confirm password',
-            icon: Icons.lock_outline,
-            obscureText: true,
-          ),
-        ],
 
         const SizedBox(height: 24),
 
@@ -402,27 +372,6 @@ class _AuthForm extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-
-        GestureDetector(
-          onTap: onToggle,
-          child: Text.rich(
-            TextSpan(
-              text: isLogin
-                  ? "Don't have an account? "
-                  : 'Already have an account? ',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              children: [
-                TextSpan(
-                  text: isLogin ? 'Sign up' : 'Login',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
 
         const SizedBox(height: 8),
 

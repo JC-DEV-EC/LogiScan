@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import 'auth_page.dart';
-import 'scan_page.dart';
+import 'scan_details_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -60,9 +60,11 @@ class HomePage extends StatelessWidget {
         backgroundColor: const Color(0xFFF3F4F6),
         bottomNavigationBar: _HomeBottomNav(
           onScanTap: () {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ScanPage()));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ScanDetailsPage(code: ''),
+              ),
+            );
           },
           onLogoutTap: handleSignOut,
         ),
@@ -203,9 +205,9 @@ class _ScanActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const ScanPage()));
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ScanDetailsPage(code: '')),
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -282,109 +284,9 @@ class _FunctionalitySection extends StatelessWidget {
           ),
         ),
         SizedBox(height: 12),
-        _TodayOverviewCard(),
-        SizedBox(height: 12),
+        // Temporarily hide field scanning workspace (_TodayOverviewCard)
         _ScannerTipsCard(),
       ],
-    );
-  }
-}
-
-/// Compact overview card focused on what matters today.
-class _TodayOverviewCard extends StatelessWidget {
-  const _TodayOverviewCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.qr_code_scanner,
-                size: 22,
-                color: Color(0xFF111827),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Field scanning workspace',
-                      style: TextStyle(
-                        color: Color(0xFF111827),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Use LogiScan to register packages on site: scan codes, confirm physical details, and keep the flow moving.',
-                      style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: const [
-              Expanded(
-                child: _MiniMetric(
-                  label: 'Packages scanned today',
-                  value: '--',
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _MiniMetric(label: 'Active scan sessions', value: '--'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniMetric extends StatelessWidget {
-  const _MiniMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF111827),
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF6B7280), fontSize: 11),
-          ),
-        ],
-      ),
     );
   }
 }
