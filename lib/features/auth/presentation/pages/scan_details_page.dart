@@ -145,8 +145,16 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
     final height = double.tryParse(_heightController.text.trim());
     final weight = double.tryParse(_weightController.text.trim());
 
-    final bool invalid =
-        tracking.length < 6 ||
+    if (tracking.isEmpty || tracking.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid tracking number (min 6 characters).'),
+        ),
+      );
+      return;
+    }
+
+    final bool invalidDimensions =
         length == null ||
         width == null ||
         height == null ||
@@ -156,7 +164,7 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
         height <= 0 ||
         weight <= 0;
 
-    if (invalid) {
+    if (invalidDimensions) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter valid dimensions and weight.'),

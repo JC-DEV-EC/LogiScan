@@ -10,10 +10,10 @@ class ApiConfig {
   static const String devBaseUrl = 'http://100.104.120.121:82';
 
   /// URL base de la API de producción
-  static const String prodBaseUrl = 'https://internalapi.gbilogistics.net';
+  static const String prodBaseUrl = 'https://beehive.gbilogistics.net';
 
   /// Modo de desarrollo (cambiar a false para producción)
-  static const bool isDevelopment = true;
+  static const bool isDevelopment = false;
 
   /// URL base de la API (selecciona según el modo)
   static String get baseUrl => isDevelopment ? devBaseUrl : prodBaseUrl;

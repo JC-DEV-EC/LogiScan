@@ -47,17 +47,17 @@ class ProcessMeasurementDataResponse {
   factory ProcessMeasurementDataResponse.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as Map<String, dynamic>? ?? json;
 
-    double? _asDouble(dynamic value) {
+    double? asDouble(dynamic value) {
       if (value == null) return null;
       if (value is num) return value.toDouble();
       return double.tryParse(value.toString());
     }
 
     return ProcessMeasurementDataResponse(
-      weight: _asDouble(content['weight']),
-      width: _asDouble(content['width']),
-      length: _asDouble(content['length']),
-      height: _asDouble(content['height']),
+      weight: asDouble(content['weight']),
+      width: asDouble(content['width']),
+      length: asDouble(content['length']),
+      height: asDouble(content['height']),
     );
   }
 }
