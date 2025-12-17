@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "500411965384",
+    "project_id": "logiscan-d0daf",
+    "storage_bucket": "logiscan-d0daf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:500411965384:android:e7c846c837eb7467efaafd",
+        "android_client_info": {
+          "package_name": "com.gbi_logistics.logiscan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFiqpEBd6qnd_rVk6bOTxlWbmHVpXmldY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

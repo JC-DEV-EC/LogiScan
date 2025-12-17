@@ -42,4 +42,8 @@ class ApiEndpoints {
 
   static String get registerPackage =>
       ApiConfig.buildUrl('/ProcessPackage/register-package');
+
+  // Tracking verification
+  static String get verifyTrackingNumber =>
+      ApiConfig.buildUrl('/Tracking/verify-tracking-number');
 }

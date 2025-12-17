@@ -13,6 +13,7 @@ import 'auth_page.dart';
 import 'home_page.dart';
 import '../../../scan/models/measurement_models.dart';
 import '../../../scan/models/register_models.dart';
+import '../../../scan/models/verify_tracking_models.dart';
 import '../../../scan/services/measurement_service.dart';
 
 class ScanDetailsPage extends StatefulWidget {
@@ -29,12 +30,16 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
   final TextEditingController _widthController = TextEditingController();
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  final FocusNode _trackingFocusNode = FocusNode();
 
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _images = [];
 
   bool _isProcessingMeasurements = false;
   bool _isSavingPackage = false;
+  bool _trackingAlreadyExists = false;
+  bool _isVerifyingTracking = false;
+  bool _isEditingTracking = false;
 
   @override
   void initState() {
@@ -49,11 +54,27 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
     _widthController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _trackingFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _addImageFromCamera() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    // Limitar a 5 imágenes totales
+    if (_images.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Maximum 5 images allowed. Remove one first.'),
+        ),
+      );
+      return;
+    }
+
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1920, // Full HD resolution
+      maxHeight: 1080, // Suficiente para labels
+      imageQuality: 85, // 85% quality - balance entre calidad y tamaño
+    );
     if (image == null) return;
 
     setState(() => _images.add(image));
@@ -67,13 +88,41 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
 
     if (result != null && result.isNotEmpty) {
       setState(() => _codeController.text = result);
+      _checkTrackingNumber();
+    }
+  }
+
+  Future<void> _openInfraredScanner() async {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _InfraredScannerPage()),
+    );
+    if (!mounted) return;
+
+    if (result != null && result.isNotEmpty) {
+      setState(() => _codeController.text = result);
+      _checkTrackingNumber();
     }
   }
 
   Future<void> _handleMeasurementCapture() async {
+    // Limitar a 5 imágenes totales
+    if (_images.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Maximum 5 images allowed. Remove one first.'),
+        ),
+      );
+      return;
+    }
+
     final measurementService = context.read<MeasurementService>();
 
-    final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1920, // Full HD resolution
+      maxHeight: 1080, // Suficiente para labels
+      imageQuality: 85, // 85% quality - balance entre calidad y tamaño
+    );
     if (photo == null) return;
 
     setState(() {
@@ -136,46 +185,219 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
   String _formatNumber(double value) =>
       value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
 
-  Future<void> _handleSavePackage() async {
-    final measurementService = context.read<MeasurementService>();
-
+  bool _isFormComplete() {
     final tracking = _codeController.text.trim();
     final length = double.tryParse(_lengthController.text.trim());
     final width = double.tryParse(_widthController.text.trim());
     final height = double.tryParse(_heightController.text.trim());
     final weight = double.tryParse(_weightController.text.trim());
 
+    return tracking.isNotEmpty &&
+        tracking.length >= 6 &&
+        length != null &&
+        width != null &&
+        height != null &&
+        weight != null &&
+        length > 0 &&
+        width > 0 &&
+        height > 0 &&
+        weight > 0 &&
+        !_isVerifyingTracking; // Deshabilitar mientras se verifica
+  }
+
+  void _resetForm() {
+    setState(() {
+      _codeController.clear();
+      _lengthController.clear();
+      _widthController.clear();
+      _heightController.clear();
+      _weightController.clear();
+      _images.clear();
+      _trackingAlreadyExists = false;
+    });
+  }
+
+  Future<void> _checkTrackingNumber() async {
+    final tracking = _codeController.text.trim();
+
+    print('\n[CHECK] Checking tracking: $tracking');
+
     if (tracking.isEmpty || tracking.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid tracking number (min 6 characters).'),
-        ),
-      );
+      setState(() {
+        _trackingAlreadyExists = false;
+        _isVerifyingTracking = false;
+      });
+      print('[CHECK] Tracking too short, skipping verification');
       return;
     }
 
-    final bool invalidDimensions =
-        length == null ||
+    setState(() => _isVerifyingTracking = true);
+
+    final measurementService = context.read<MeasurementService>();
+    final verifyRequest = VerifyTrackingNumberRequest(trackingNumber: tracking);
+
+    print('[CHECK] Calling verifyTrackingNumber API...');
+    final verifyResponse = await measurementService.verifyTrackingNumber(
+      verifyRequest,
+    );
+
+    print('[CHECK] Response - isSuccessful: ${verifyResponse.isSuccessful}');
+    print(
+      '[CHECK] Response - isRegistered: ${verifyResponse.content?.isRegistered}',
+    );
+
+    if (!mounted) return;
+
+    if (verifyResponse.isSuccessful &&
+        verifyResponse.content?.isRegistered == true) {
+      print('[CHECK] ⚠️ Tracking ALREADY EXISTS!');
+      setState(() => _trackingAlreadyExists = true);
+
+      final registrationDate = verifyResponse.content?.registrationDateTime;
+      String dateInfo = '';
+      if (registrationDate != null) {
+        final formattedDate =
+            '${registrationDate.day.toString().padLeft(2, '0')}/${registrationDate.month.toString().padLeft(2, '0')}/${registrationDate.year} ${registrationDate.hour.toString().padLeft(2, '0')}:${registrationDate.minute.toString().padLeft(2, '0')}';
+        dateInfo = '\n\nRegistered on: $formattedDate';
+      }
+
+      // Solo mostrar advertencia visual
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Warning: Tracking "$tracking" is already registered.$dateInfo',
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } else {
+      print('[CHECK] ✅ Tracking is available');
+      setState(() => _trackingAlreadyExists = false);
+    }
+
+    setState(() => _isVerifyingTracking = false);
+    print('[CHECK] Verification complete\n');
+  }
+
+  Future<void> _handleSavePackage() async {
+    final tracking = _codeController.text.trim();
+
+    print('\n========== SAVE PACKAGE INITIATED ==========');
+    print('[SAVE] Tracking: $tracking');
+    print('[SAVE] _trackingAlreadyExists: $_trackingAlreadyExists');
+
+    // Paso 1: Verificar el tracking number una última vez antes de guardar
+    setState(() => _isSavingPackage = true);
+
+    final measurementService = context.read<MeasurementService>();
+    final verifyRequest = VerifyTrackingNumberRequest(trackingNumber: tracking);
+
+    print('[SAVE] Calling verifyTrackingNumber API...');
+    final verifyResponse = await measurementService.verifyTrackingNumber(
+      verifyRequest,
+    );
+
+    print(
+      '[SAVE] Verify Response - isSuccessful: ${verifyResponse.isSuccessful}',
+    );
+    print(
+      '[SAVE] Verify Response - isRegistered: ${verifyResponse.content?.isRegistered}',
+    );
+    print(
+      '[SAVE] Verify Response - registrationDateTime: ${verifyResponse.content?.registrationDateTime}',
+    );
+
+    if (!mounted) return;
+
+    // Si el tracking ya existe, preguntar si desea actualizar
+    if (verifyResponse.isSuccessful &&
+        verifyResponse.content?.isRegistered == true) {
+      print('[SAVE] ⚠️ TRACKING ALREADY EXISTS - Asking user for confirmation');
+      setState(() => _isSavingPackage = false);
+
+      final registrationDate = verifyResponse.content?.registrationDateTime;
+      String dateInfo = '';
+      if (registrationDate != null) {
+        final formattedDate =
+            '${registrationDate.day.toString().padLeft(2, '0')}/${registrationDate.month.toString().padLeft(2, '0')}/${registrationDate.year} ${registrationDate.hour.toString().padLeft(2, '0')}:${registrationDate.minute.toString().padLeft(2, '0')}';
+        dateInfo = '\n\nRegistered on: $formattedDate';
+      }
+
+      final shouldUpdate = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.info, color: Colors.orange),
+              const SizedBox(width: 8),
+              Expanded(
+                child: const Text(
+                  'Update Information?',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'The tracking number "$tracking" is already registered in the system.$dateInfo\n\nDo you want to update the information?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Yes, Update'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldUpdate != true) {
+        print('[SAVE] User declined to update - cancelling');
+        print('========== SAVE CANCELLED ==========\n');
+        return;
+      }
+
+      print('[SAVE] User confirmed update - proceeding');
+      setState(() => _isSavingPackage = true);
+    }
+
+    print('[SAVE] ✅ Tracking verification passed - proceeding with save');
+    print('[SAVE] Preparing package data...');
+
+    // Paso 2: Validar y continuar con el guardado
+    final length = double.tryParse(_lengthController.text.trim());
+    final width = double.tryParse(_widthController.text.trim());
+    final height = double.tryParse(_heightController.text.trim());
+    final weight = double.tryParse(_weightController.text.trim());
+
+    if (length == null ||
         width == null ||
         height == null ||
         weight == null ||
         length <= 0 ||
         width <= 0 ||
         height <= 0 ||
-        weight <= 0;
-
-    if (invalidDimensions) {
+        weight <= 0) {
+      setState(() => _isSavingPackage = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter valid dimensions and weight.'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    setState(() => _isSavingPackage = true);
-
     try {
+      print('[SAVE] Building file list...');
       final List<RequestEncodeFile> encodedFiles = [];
 
       for (final img in _images) {
@@ -202,7 +424,21 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
         files: encodedFiles.isEmpty ? null : encodedFiles,
       );
 
+      print('[SAVE] 🚀 Calling registerPackage API...');
+      print(
+        '[SAVE] Request - tracking: $tracking, L:$length W:$width H:$height Wt:$weight',
+      );
+      print('[SAVE] Request - files count: ${encodedFiles.length}');
+
       final response = await measurementService.registerPackage(request);
+
+      print(
+        '[SAVE] Register Response - isSuccessful: ${response.isSuccessful}',
+      );
+      print(
+        '[SAVE] Register Response - message: ${response.content?.userMessage}',
+      );
+      print('========== SAVE COMPLETED ==========\n');
       if (!mounted) return;
 
       if (response.isSuccessful) {
@@ -329,7 +565,7 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
                 if (hasPhysicalData) const SizedBox(height: 20),
                 _buildImagesSection(),
                 const SizedBox(height: 24),
-                _buildSaveButton(),
+                _buildActionButtons(),
               ],
             ),
           ),
@@ -342,60 +578,173 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Tracking number',
-          style: TextStyle(
-            color: Color(0xFF111827),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Tracking Number',
+              style: TextStyle(
+                color: Color(0xFF111827),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (_codeController.text.isNotEmpty)
+              Row(
+                children: [
+                  if (_trackingAlreadyExists)
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.warning,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  if (_trackingAlreadyExists) const SizedBox(width: 8),
+                  if (!_isEditingTracking)
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() => _isEditingTracking = true);
+                          // Auto-focus the text field
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            _trackingFocusNode.requestFocus();
+                          });
+                        },
+                      ),
+                    ),
+                ],
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         _codeController.text.isEmpty
-            ? GestureDetector(
-                onTap: _openTrackingScanner,
-                child: _buildScanCard(),
-              )
+            ? _buildScanButtons()
             : TextField(
                 controller: _codeController,
+                focusNode: _trackingFocusNode,
+                readOnly: !_isEditingTracking,
                 textCapitalization: TextCapitalization.characters,
+                style: TextStyle(
+                  fontSize: _isEditingTracking ? 14 : 14,
+                  letterSpacing: _isEditingTracking ? 0 : 0,
+                ),
+                onChanged: (_) => _checkTrackingNumber(),
+                onTap: () {
+                  if (!_isEditingTracking) {
+                    setState(() => _isEditingTracking = true);
+                  }
+                },
+                onEditingComplete: () {
+                  setState(() => _isEditingTracking = false);
+                  FocusScope.of(context).unfocus();
+                },
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp('[A-Z0-9-]')),
                   LengthLimitingTextInputFormatter(40),
                 ],
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: _isEditingTracking
+                      ? Colors.white
+                      : const Color(0xFFF9FAFB),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(
+                      color: _isEditingTracking
+                          ? const Color(0xFF111827)
+                          : Colors.grey.withValues(alpha: 0.4),
+                    ),
                   ),
-                  hintText: 'Tracking number',
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    borderSide: BorderSide(color: Color(0xFF111827), width: 2),
+                  ),
+                  hintText: 'Tracking Number',
                 ),
               ),
       ],
     );
   }
 
-  Widget _buildScanCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: const [
-          Icon(Icons.photo_camera_outlined, color: Color(0xFF111827)),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Tap to scan tracking number',
-              style: TextStyle(color: Color(0xFF4B5563), fontSize: 13),
+  Widget _buildScanButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: _openTrackingScanner,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.photo_camera_outlined, color: Color(0xFF111827)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Camera',
+                    style: TextStyle(color: Color(0xFF4B5563), fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: GestureDetector(
+            onTap: _openInfraredScanner,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.settings_remote, color: Color(0xFF111827)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Scanner',
+                    style: TextStyle(color: Color(0xFF4B5563), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -454,7 +803,7 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Dimensions (inches)',
+          'Dimensions (in)',
           style: TextStyle(
             color: Color(0xFF111827),
             fontSize: 14,
@@ -544,9 +893,13 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: _addImageFromCamera,
+                onPressed: _images.length < 5 ? _addImageFromCamera : null,
                 icon: const Icon(Icons.add_a_photo_outlined),
-                label: const Text('Add images'),
+                label: Text(
+                  _images.length < 5
+                      ? 'Add image (${_images.length}/5)'
+                      : 'Max images (5/5)',
+                ),
               ),
               if (_images.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -606,28 +959,51 @@ class _ScanDetailsPageState extends State<ScanDetailsPage> {
     );
   }
 
-  Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: FilledButton(
-        onPressed: _isSavingPackage ? null : _handleSavePackage,
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+  Widget _buildActionButtons() {
+    final bool isFormComplete = _isFormComplete();
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton(
+            onPressed: (_isSavingPackage || !isFormComplete)
+                ? null
+                : _handleSavePackage,
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: _isSavingPackage
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text('Save'),
           ),
         ),
-        child: _isSavingPackage
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Text('Save and continue'),
-      ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: _isSavingPackage ? null : _resetForm,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reset form'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -671,6 +1047,133 @@ class _NumberField extends StatelessWidget {
         labelText: label,
         border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfraredScannerPage extends StatefulWidget {
+  const _InfraredScannerPage();
+
+  @override
+  State<_InfraredScannerPage> createState() => _InfraredScannerPageState();
+}
+
+class _InfraredScannerPageState extends State<_InfraredScannerPage> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-enfocar el campo cuando se abre la página
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleSubmit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    final normalized = text.toUpperCase();
+    final bool isValid =
+        RegExp(r'^[A-Z0-9-]+$').hasMatch(normalized) &&
+        normalized.length >= 6 &&
+        normalized.length <= 40;
+
+    if (!isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid tracking number format'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop<String>(normalized);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF111111),
+        foregroundColor: Colors.white,
+        title: const Text('Infrared Scanner'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            const Icon(
+              Icons.settings_remote,
+              size: 64,
+              color: Color(0xFF111827),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Scan with infrared scanner',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Point your scanner at the tracking number',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              textCapitalization: TextCapitalization.characters,
+              onSubmitted: (_) => _handleSubmit(),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[A-Z0-9-]')),
+                LengthLimitingTextInputFormatter(35),
+              ],
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                hintText: 'Tracking number will appear here',
+                prefixIcon: Icon(Icons.qr_code),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _handleSubmit,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Confirm'),
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );

@@ -294,6 +294,9 @@ class _AuthForm extends StatelessWidget {
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
           controller: emailController,
+          onChanged: (_) {
+            context.read<AuthProvider>().clearError();
+          },
         ),
 
         const SizedBox(height: 16),
@@ -303,6 +306,9 @@ class _AuthForm extends StatelessWidget {
           icon: Icons.lock_outline,
           obscureText: true,
           controller: passwordController,
+          onChanged: (_) {
+            context.read<AuthProvider>().clearError();
+          },
         ),
 
         const SizedBox(height: 24),
@@ -392,6 +398,7 @@ class _GlassTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType,
     this.controller,
+    this.onChanged,
   });
 
   final String hintText;
@@ -399,28 +406,38 @@ class _GlassTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextEditingController? controller;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      cursorColor: Colors.white,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: Colors.white70),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white24),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: Colors.grey.shade300,
+          selectionColor: Colors.grey.withOpacity(0.4),
+          selectionHandleColor: Colors.grey.shade300,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        onChanged: onChanged,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: const TextStyle(color: Colors.white70),
+          prefixIcon: Icon(icon, color: Colors.white70),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white24),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white),
+          ),
+          filled: false,
         ),
-        filled: false,
       ),
     );
   }

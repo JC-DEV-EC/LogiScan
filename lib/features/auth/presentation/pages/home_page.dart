@@ -274,8 +274,8 @@ class _FunctionalitySection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: const [
-        Text(
+      children: [
+        const Text(
           'LogiScan today',
           style: TextStyle(
             color: Color(0xFF111827),
@@ -283,9 +283,9 @@ class _FunctionalitySection extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         // Temporarily hide field scanning workspace (_TodayOverviewCard)
-        _ScannerTipsCard(),
+        const _ScannerTipsCard(),
       ],
     );
   }

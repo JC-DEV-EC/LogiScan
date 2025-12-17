@@ -44,6 +44,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   LoginResponse? get loginData => _loginData;
 
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
   Future<bool> login(String username, String password) async {
     AppLogger.log('Attempting login', source: 'AuthProvider');
     try {
